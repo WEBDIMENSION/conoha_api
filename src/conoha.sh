@@ -154,7 +154,7 @@ if [ "$1" = "add_vm" ]; then
   # Ready For Test
 
   cat <<__END_OF_MESSAGE__ > ${ANSIBLE_HOST_DIR}/${TAG_NAME}
-[softether]
+[ansible]
 root
 ansible_user
 
