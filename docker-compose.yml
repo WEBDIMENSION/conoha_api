@@ -6,5 +6,5 @@ services:
     container_name: conoha_api
     volumes:
       - ./src:/src
-      - ./../ansible/hosts:/hosts
+      - ./../ansible/src/hosts:/hosts
     working_dir: /src

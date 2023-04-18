@@ -107,13 +107,13 @@ if [ "$1" = "add_vm" ]; then
           "instance_name_tag": '\"${TAG_NAME}\"'
         },
         "security_groups":[
-          {"name": '\"${SG}\"'
+          {"name": '\"${SG}\"'}
         ]
       }
    }' \
     https://compute.tyo2.conoha.io/v2/${TENANT_ID}/servers | jq .)
 
-  echo "${ADD_VM_RESPONSE}" | jq .> "$dir_path"/json/vm.json
+  echo "${ADD_VM_RESPONSE}" | jq . > "$dir_path"/json/vm.json
   echo "Success: Create vm.json"
 #  CREATE_SERVER_ID=$ADD_VM_RESPONSE
   CREATE_SERVER_ID=$(echo "$ADD_VM_RESPONSE" | jq -r ".server.id")
