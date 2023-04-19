@@ -30,7 +30,7 @@ if [ "$1" = "servers" ]; then
     -H "Accept: application/json" \
     -H "X-Auth-Token: ${TOKEN}" \
     https://compute.tyo2.conoha.io/v2/${TENANT_ID}/servers/detail)
-    echo "${GET_VMS_RESPONSE}" | jq . > "$dir_path"/json/servers.json
+  echo "${GET_VMS_RESPONSE}" | jq . >"$dir_path"/json/servers.json
   len=$(echo ${GET_VMS_RESPONSE} | jq ".servers" | jq length)
   for j in $(seq 0 $(($len - 1))); do
     echo $GET_VMS_RESPONSE | jq -r ".servers[$j].metadata.instance_name_tag"
@@ -113,9 +113,9 @@ if [ "$1" = "add_vm" ]; then
    }' \
     https://compute.tyo2.conoha.io/v2/${TENANT_ID}/servers | jq .)
 
-  echo "${ADD_VM_RESPONSE}" | jq . > "$dir_path"/json/vm.json
+  echo "${ADD_VM_RESPONSE}" | jq . >"$dir_path"/json/vm.json
   echo "Success: Create vm.json"
-#  CREATE_SERVER_ID=$ADD_VM_RESPONSE
+  #  CREATE_SERVER_ID=$ADD_VM_RESPONSE
   CREATE_SERVER_ID=$(echo "$ADD_VM_RESPONSE" | jq -r ".server.id")
   if [ -z "$CREATE_SERVER_ID" ]; then
     echo 'Failed. missing Create Server.'
@@ -136,12 +136,13 @@ if [ "$1" = "add_vm" ]; then
   printf "%20s\r"
 
   #Get Server IP
+  sleep 15
   echo "Try get server info server_id : ${CREATE_SERVER_ID}"
   VM_INFO_RESPONSE=$(curl -s -X GET \
     -H "Accept: application/json" \
     -H "X-Auth-Token: ${TOKEN}" \
     https://compute.tyo2.conoha.io/v2/${TENANT_ID}/servers/"${CREATE_SERVER_ID}")
-  echo ${VM_INFO_RESPONSE} | jq . > "$dir_path"/json/vm_detail.json
+  echo ${VM_INFO_RESPONSE} | jq . >"$dir_path"/json/vm_detail.json
   len=$(echo ${VM_INFO_RESPONSE} | jq '.["server"]["addresses"][]' | jq length)
   for i in $(seq 0 $(($len - 1))); do
     if [ '4' = $(echo $VM_INFO_RESPONSE | jq '.["server"]["addresses"][]' | jq -r ".[$i].version") ]; then
@@ -153,7 +154,7 @@ if [ "$1" = "add_vm" ]; then
 
   # Ready For Test
 
-  cat <<__END_OF_MESSAGE__ > ${ANSIBLE_HOST_DIR}/${TAG_NAME}
+  cat <<__END_OF_MESSAGE__ >${ANSIBLE_HOST_DIR}/${TAG_NAME}
 [ansible]
 root
 ansible_user
@@ -172,7 +173,7 @@ ansible_user
 ansible_host=$CREATE_SERVER_IP
 ansible_user=ansible-user
 ansible_port=$SSH_PORT
-ansible_ssh_private_key_file=roles/ansible_user/files/ansible_rsa
+ansible_ssh_private_key_file=roles/ansible_user/files/keys/ansible_rsa
 __END_OF_MESSAGE__
 
 fi
@@ -180,8 +181,8 @@ fi
 ## Destroy VM
 if [ "$1" = "destroy_vm" ]; then
   if [ "$2" = "" ]; then
-      echo "Not param TagName"
-      exit
+    echo "Not param TagName"
+    exit
   fi
   ###  Get vms
   GET_VMS_RESPONSE=$(curl -s -X GET \
@@ -209,7 +210,7 @@ if [ "$1" = "destroy_vm" ]; then
     -H "Accept: application/json" \
     -H "X-Auth-Token: ${TOKEN}" \
     https://compute.tyo2.conoha.io/v2/${TENANT_ID}/servers/${DELETE_VM_ID})
-  if [ -z $DELETE_VM_RESPONSE ]; then
+  if [ -z "$DELETE_VM_RESPONSE" ]; then
     echo "Success. Destroy Server tag_name is $2"
   else
     echo "Failed. Destroy Server tag_name is $2"
@@ -225,5 +226,55 @@ if [ "$1" = "sg" ]; then
     -H "Accept: application/json" \
     -H "X-Auth-Token: ${TOKEN}" \
     https://networking.tyo2.conoha.io/v2.0/security-groups)
-  echo $SG_RESPONSE | jq .  > "$dir_path"/json/sg.json
+  echo $SG_RESPONSE | jq . >"$dir_path"/json/sg.json
+fi
+
+if [ "$1" = "reset" ]; then
+  if [ "$2" = "" ]; then
+    echo "Not param TagName"
+    exit
+  fi
+  ###  Get vms
+  GET_VMS_RESPONSE=$(curl -s -X GET \
+    -H "Accept: application/json" \
+    -H "X-Auth-Token: ${TOKEN}" \
+    https://compute.tyo2.conoha.io/v2/${TENANT_ID}/servers/detail)
+  len=$(echo ${GET_VMS_RESPONSE} | jq ".servers" | jq length)
+  for i in $(seq 0 $(($len - 1))); do
+    if [ "$2" = $(echo $GET_VMS_RESPONSE | jq -r ".servers[$i].metadata.instance_name_tag") ]; then
+      RESET_VM_ID=$(echo $GET_VMS_RESPONSE | jq -r ".servers[$i].id")
+      echo "RESET_VM_ID : "$RESET_VM_ID
+      break
+    fi
+  done
+
+  if [ -z "$RESET_VM_ID" ]; then
+    echo "Failed. Not Found Server tag_name is $2"
+    exit
+  else
+    echo "Success. Found Server tag_name is $2"
+  fi
+
+  ### reset vm
+  RESET_VM_RESPONSE=$(curl -s -X POST \
+    -H "Accept: application/json" \
+    -H "X-Auth-Token: ${TOKEN}" \
+    -d '{
+      "rebuild": {
+        "adminPass": '\"${SERVER_ADMIN_PASSWORD}\"',
+        "imageRef": '\"${IMAGE_ID}\"'
+      }
+   }' \
+    https://compute.tyo2.conoha.io/v2/${TENANT_ID}/servers/"${RESET_VM_ID}"/action | jq .)
+
+  echo "$RESET_VM_RESPONSE" | jq . >"$dir_path"/json/reset.json
+  echo $RESET_VM_RESPONSE
+
+  if [ -z "$RESET_VM_RESPONSE" ]; then
+    echo "Failed. reset Server tag_name is $2"
+  else
+    echo "Success. rese Server tag_name is $2"
+    exit
+  fi
+
 fi
