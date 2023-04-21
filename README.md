@@ -40,3 +40,8 @@ docker-compose run --rm conoha_api ./conoha.sh add_vm
 ```bash
 docker-compose run --rm conoha_api ./conoha.sh destroy_vm <TAG_NAME>
 ```
+## VM 再インストール
+
+```bash
+docker-compose run --rm conoha_api ./conoha.sh reset <TAG_NAME>
+```
