@@ -1,5 +1,7 @@
 # Conoha API
 
+*Keypairは登録済みであること！
+
 ## 現在稼働中のVMリスト
 
 ```bash

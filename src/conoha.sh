@@ -101,6 +101,7 @@ if [ "$1" = "add_vm" ]; then
     -d '{
       "server": {
         "adminPass": '\"${SERVER_ADMIN_PASSWORD}\"',
+        "key_name": '\"${PUBLIC_KEY_NAME}\"',
         "imageRef": '\"${IMAGE_ID}\"',
         "flavorRef": '\"${FLAVOR_ID}\"',
         "metadata": {
@@ -151,6 +152,91 @@ if [ "$1" = "add_vm" ]; then
       break
     fi
   done
+  FQDN_ARRAY=(${FQDN//./ })
+  FQDN_ORIGIN=${FQDN_ARRAY[-2]}.${FQDN_ARRAY[-1]}.
+  echo $FQDN_ORIGIN
+  DOMAIN_RESPONSE=$(curl -s -X GET \
+    -H "Accept: application/json" \
+    -H "Content-Type: application/json" \
+    -H "X-Auth-Token: ${TOKEN}" \
+    https://dns-service.tyo2.conoha.io/v1/domains)
+  #  echo $SG_RESPONSE | jq . >"$dir_path"/json/keypair.json
+  #  echo $DOMAIN_RESPONSE
+  len=$(echo "${DOMAIN_RESPONSE}" | jq ".domains" | jq length)
+  ORIGINAL_DOMAIN_EXIST=false
+  for i in $(seq 0 $(($len - 1))); do
+    if [ "$FQDN_ORIGIN" = $(echo $DOMAIN_RESPONSE | jq -r ".domains[$i].name") ]; then
+      ORIGINAL_DOMAIN_EXIST=true
+      echo 'domain exist'
+      DOMAIN_ID=$(echo $DOMAIN_RESPONSE | jq -r ".domains[$i].id")
+      break
+    fi
+  done
+  if [ $ORIGINAL_DOMAIN_EXIST = false ]; then
+    echo 'domain not exist! start register domain'
+    REGISTER_DOMAIN=$(curl -s -X POST \
+      -H "Accept: application/json" \
+      -H "Content-Type: application/json" \
+      -H "X-Auth-Token: ${TOKEN}" \
+      -d '{
+        "name": '\"${FQDN_ORIGIN}\"',
+        "ttl": 60,
+        "email": '\"${EMAIL}\"',
+         "gslb": 0
+        }' \
+      https://dns-service.tyo2.conoha.io/v1/domains)
+    DOMAIN_ID=$(echo $REGISTER_DOMAIN | jq -r ".id")
+  fi
+  echo "$DOMAIN_ID"
+  DNS_RECORDS=$(curl -s -X GET \
+    -H "Accept: application/json" \
+    -H "Content-Type: application/json" \
+    -H "X-Auth-Token: ${TOKEN}" \
+    -d '{
+        "name": '\"${FQDN_ORIGIN}\"',
+        "ttl": 60,
+        "email": '\"${EMAIL}\"',
+         "gslb": 0
+        }' \
+    https://dns-service.tyo2.conoha.io/v1/domains/${DOMAIN_ID}/records)
+  echo $DNS_RECORDS | jq .
+
+  len=$(echo "${DNS_RECORDS}" | jq ".records" | jq length)
+  DNS_RECORD_EXIST=false
+  for i in $(seq 0 $(($len - 1))); do
+    if [ "$FQDN". = $(echo $DNS_RECORDS | jq -r ".records[$i].name") ] && [ $(echo $DNS_RECORDS | jq -r ".records[$i].type") = "A" ]; then
+      echo 'dns record exist update dns record'
+      DNS_RECORD_EXIST=true
+      RECORD_ID=$(echo $DNS_RECORDS | jq -r ".records[$i].id")
+      UPDATE_DNS_RECORD=$(curl -s -X PUT \
+        -H "Accept: application/json" \
+        -H "Content-Type: application/json" \
+        -H "X-Auth-Token: ${TOKEN}" \
+        -d '{
+        "name": '\"${FQDN}.\"',
+        "type": "A",
+        "data": '\"${CREATE_SERVER_IP}\"',
+        "ttl": 60
+        }' \
+        https://dns-service.tyo2.conoha.io/v1/domains/${DOMAIN_ID}/records/${RECORD_ID})
+      echo $UPDATE_DNS_RECORD | jq .
+    fi
+  done
+  if [ $DNS_RECORD_EXIST = false ]; then
+    echo 'register dns record'
+    REGISTER_DNS_RECORD=$(curl -s -X POST \
+      -H "Accept: application/json" \
+      -H "Content-Type: application/json" \
+      -H "X-Auth-Token: ${TOKEN}" \
+      -d '{
+        "name": '\"${FQDN}.\"',
+        "type": "A",
+        "data": '\"${CREATE_SERVER_IP}\"',
+        "ttl": 60
+        }' \
+      https://dns-service.tyo2.conoha.io/v1/domains/${DOMAIN_ID}/records)
+    echo "$REGISTER_DNS_RECORD" | jq -r .
+  fi
 
   # Ready For Test
 
@@ -165,7 +251,7 @@ root
 ansible_user=root
 ansible_host=$CREATE_SERVER_IP
 ansible_port=22
-ansible_ssh_pass=$SERVER_ADMIN_PASSWORD
+ansible_ssh_private_key_file=~/.ssh/ansible_rsa
 
 [ansible_users]
 ansible_user
@@ -277,4 +363,14 @@ if [ "$1" = "reset" ]; then
     exit
   fi
 
+fi
+
+## Get Key Pairs
+if [ "$1" = "keys" ]; then
+  KEYS_RESPONSE=$(curl -s -X GET \
+    -H "Accept: application/json" \
+    -H "X-Auth-Token: ${TOKEN}" \
+    https://compute.tyo2.conoha.io/v2/${TENANT_ID}/os-keypairs)
+  #  echo $SG_RESPONSE | jq . >"$dir_path"/json/keypair.json
+  echo $KEYS_RESPONSE | jq .
 fi
