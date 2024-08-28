@@ -1,0 +1,10 @@
+version: '3.5'
+
+services:
+  conoha_api:
+    image: ghcr.io/webdimension/ansible:latest
+    container_name: conoha_api
+    volumes:
+      - ./src:/src
+      - ./../ansible/src/hosts:/hosts
+    working_dir: /src
