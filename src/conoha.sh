@@ -251,7 +251,7 @@ root
 ansible_user=root
 ansible_host=$CREATE_SERVER_IP
 ansible_port=22
-ansible_ssh_private_key_file={{ inventory_dir | dirname }}/files/keys/ansible_rsa
+ansible_ssh_private_key_file=~/.ssh/root.pem
 
 [ansible_users]
 ansible_user
@@ -259,7 +259,7 @@ ansible_user
 ansible_host=$CREATE_SERVER_IP
 ansible_user=ansible-user
 ansible_port=$SSH_PORT
-ansible_ssh_private_key_file={{ inventory_dir | dirname }}/files/keys/ansible_rsa
+ansible_ssh_private_key_file=~/.ssh/ansible_rsa
 __END_OF_MESSAGE__
 
 fi
